@@ -1,3 +1,7 @@
+2002-01-16	Christian Gilmore <cag@us.ibm.com>
+	o  Corrected bug with relative redirects. Bug reported by Shail.
+	o  Made release 0.17.
+
 2002-01-15	Christian Gilmore <cag@us.ibm.com>
 	o  Corrected bug with ports in embedded URIs that match ProxyTo
 	   variable. Bug reported by Rob Wybrow.
@@ -50,4 +54,4 @@
 
 	o  Made first public release 0.10.
 
-$Id: ChangeLog,v 1.9 2002/01/15 22:39:30 cgilmore Exp $
+$Id: ChangeLog,v 1.10 2002/01/16 15:49:42 cgilmore Exp $

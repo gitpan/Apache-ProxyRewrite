@@ -1,4 +1,4 @@
-# $Id: ProxyRewrite.pm,v 1.13 2002/01/15 22:40:02 cgilmore Exp $
+# $Id: ProxyRewrite.pm,v 1.14 2002/01/16 15:49:48 cgilmore Exp $
 #
 # Author          : Christian Gilmore
 # Created On      : Nov 10 12:04:00 CDT 2000
@@ -273,7 +273,7 @@ use URI::Escape qw(uri_unescape);
 
 
 # Global variables
-$Apache::ProxyRewrite::VERSION = '0.16';
+$Apache::ProxyRewrite::VERSION = '0.17';
 $Apache::ProxyRewrite::PRODUCT = 'ProxyRewrite/' .
   $Apache::ProxyRewrite::VERSION;
 my %LINK_ELEMENTS =
@@ -696,8 +696,15 @@ sub respond {
     &rewrite_url($r, $remote_site, \$location, $mapref);
     # Only modify location if rewritten URL is relative
     unless ($location =~ m!://!) {
-      $location = $parsed_uri->scheme . '://' . $parsed_uri->hostinfo .
-	$location;
+      if ($location =~ m!^/!) {
+	$location = $parsed_uri->scheme . '://' . $parsed_uri->hostinfo .
+	  $location;
+      } else {
+	my $base = $r->uri;
+	$base =~ s!(/)[^/]+$!$1!;
+	$location = $parsed_uri->scheme . '://' . $parsed_uri->hostinfo .
+	  $base . $location;
+      }
     }
     $r->log->debug("respond: Location: $location");
     $r->headers_out->{'Location'} = $location;
@@ -910,6 +917,9 @@ modify it under the terms of the IBM Public License.
 ###############################################################################
 ###############################################################################
 # $Log: ProxyRewrite.pm,v $
+# Revision 1.14  2002/01/16 15:49:48  cgilmore
+# see ChangeLog
+#
 # Revision 1.13  2002/01/15 22:40:02  cgilmore
 # see ChangeLog for details
 #
