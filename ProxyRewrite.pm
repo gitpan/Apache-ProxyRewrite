@@ -1,4 +1,4 @@
-# $Id: ProxyRewrite.pm,v 1.7 2001/03/07 19:43:15 cgilmore Exp $
+# $Id: ProxyRewrite.pm,v 1.9 2001/03/21 16:25:04 cgilmore Exp $
 #
 # Author          : Christian Gilmore
 # Created On      : Nov 10 12:04:00 CDT 2000
@@ -271,7 +271,7 @@ use LWP::UserAgent;
 use URI::Escape qw(uri_unescape);
 
 # Global variables
-$Apache::ProxyRewrite::VERSION = '0.13';
+$Apache::ProxyRewrite::VERSION = '0.14';
 $Apache::ProxyRewrite::PRODUCT = 'ProxyRewrite/' .
   $Apache::ProxyRewrite::VERSION;
 my %LINK_ELEMENTS =
@@ -526,8 +526,8 @@ sub dealwithtag {
   # Remove all other forms of whitespace in block
   $$tagblock =~ s/(\f|\n|\r|\t)//g;
   # Remove leading and trailing whitespace within quotes
-  $$tagblock =~ s/(=\")\s*/$1/g;
-  $$tagblock =~ s/\s*(\")/$1/g;
+  $$tagblock =~ s/(=[\"\'])\s*/$1/g;
+  $$tagblock =~ s/\s*([\"\'])/$1/g;
   @blocks = split(/\s+/, $$tagblock);
   $tag = shift(@blocks);
   $lctag = lc($tag);
@@ -539,7 +539,7 @@ sub dealwithtag {
         $lckey = lc($key);
         if ($lctag =~ /(applet|img|link|meta|object)/) {
           if (exists($LINK_ELEMENTS{$lctag}{$lckey})) {
-            $value =~ s/\"//g;
+            $value =~ s/(\"|\')//g;
 	    if ($lctag eq 'meta') {
 	      $lcvalue = lc($value);
 	      if ($lckey eq 'http-equiv') {
@@ -584,7 +584,7 @@ sub dealwithtag {
 	    $$tagblock .= " $blocks[$i]";
 	  }
         } elsif ($lckey eq $LINK_ELEMENTS{$lctag}) {
-	  $value =~ s/\"//g;
+	  $value =~ s/(\"|\')//g;
 	  &rewrite_url($r, $remote_site, \$value, $mapref);
 	  $$tagblock .= " $key=\"$value\"";
 	} else {
@@ -655,8 +655,11 @@ sub respond {
   if ($r->status =~ /(301|302)/) {
     my $location = $response->header('Location');
     &rewrite_url($r, $remote_site, \$location, $mapref);
-    $location = $parsed_uri->scheme . '://' . $parsed_uri->hostinfo . 
-      $location;
+    # Only modify location is rewritten URL is relative
+    unless ($location =~ m!://!) {
+      $location = $parsed_uri->scheme . '://' . $parsed_uri->hostinfo . 
+	$location;
+    }
     $r->log->debug("respond: Location: $location");
     $r->headers_out->{'Location'} = $location;
   } 
@@ -863,6 +866,12 @@ modify it under the terms of the IBM Public License.
 ###############################################################################
 ###############################################################################
 # $Log: ProxyRewrite.pm,v $
+# Revision 1.9  2001/03/21 16:25:04  cgilmore
+# See ChangeLog for details
+#
+# Revision 1.8  2001/03/21 16:03:19  cgilmore
+# see ChangeLog for details
+#
 # Revision 1.7  2001/03/07 19:43:15  cgilmore
 # See ChangeLog
 #

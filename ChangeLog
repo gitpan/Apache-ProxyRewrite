@@ -1,3 +1,10 @@
+2001-03-20	Christian Gilmore <cgilmore@tivoli.com>
+	o  Corrected bug preparing redirect responses. Bug reported by
+	   Vsevolod Ilyushchenko.
+	o  Parser now handles tags with single quotes. Bug reported by
+	   Andrew Carlson.
+	o  Made release 0.14.
+	
 2001-03-02	Christian Gilmore <cgilmore@tivoli.com>
 
 	o  Corrected bug handling tags with whitespace around
@@ -27,4 +34,4 @@
 
 	o  Made first public release 0.10.
 
-$Id: ChangeLog,v 1.4 2001/03/07 19:43:15 cgilmore Exp $
+$Id: ChangeLog,v 1.6 2001/03/21 16:25:04 cgilmore Exp $
