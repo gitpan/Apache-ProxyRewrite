@@ -1,4 +1,4 @@
-# $Id: ProxyRewrite.pm,v 1.5 2001/01/14 19:47:33 cgilmore Exp $
+# $Id: ProxyRewrite.pm,v 1.6 2001/03/02 21:12:32 cgilmore Exp $
 #
 # Author          : Christian Gilmore
 # Created On      : Nov 10 12:04:00 CDT 2000
@@ -263,13 +263,15 @@ package Apache::ProxyRewrite;
 
 # Required libraries
 use strict;
+use Apache;
 use Apache::Constants qw(OK AUTH_REQUIRED DECLINED DONE);
 use Apache::Log;
 use Apache::URI;
 use LWP::UserAgent;
+use URI::Escape qw(uri_unescape);
 
 # Global variables
-$Apache::ProxyRewrite::VERSION = '0.11';
+$Apache::ProxyRewrite::VERSION = '0.12';
 $Apache::ProxyRewrite::PRODUCT = 'ProxyRewrite/' .
   $Apache::ProxyRewrite::VERSION;
 my %LINK_ELEMENTS =
@@ -336,34 +338,41 @@ sub handler {
   }
 
   # Automatically add a mapping for the remote relative URI and the
-  # current location
-  $remote_location =~ m!://[^/]+(/?.*)!;
-  if ($1) {
-    $mappings{$1} = $r->location;
+  # current location. Also capture remote site information.
+  $remote_location =~ m!^([^:]+://[^/]+)(/?.*)!;
+  my $remote_site = $1;
+  if ($2) {
+    $mappings{$2} = $r->location;
   } elsif ($r->location eq '/') {
     $mappings{'/'} = $r->location;
   } else {
     $mappings{'/'} = $r->location . '/';
   }
 
-  $r->log->debug("handler: Remote Host - $remote_location");
+  $r->log->debug("handler: Remote Site - $remote_site");
+  $r->log->debug("handler: Remote Location - $remote_location");
   $r->log->debug("handler: Auth Info - $auth_info");
   foreach (keys(%mappings)) {
     $r->log->debug("handler: Mapping $_ to $mappings{$_}");
   }
 
   # fetch URL
-  $r->log->info("ProxyRewrite: Preparing to fetch ", $r->uri);
+  $r->log->info("ProxyRewrite: Preparing to fetch ", $r->uri, 
+		" at time ", time);
   my $response = &fetch($r, $remote_location, $auth_info);
 
   # rewrite response URIs as needed
-  $r->log->info("ProxyRewrite: Preparing to rewrite URIs for ", $r->uri);
+  $r->log->info("ProxyRewrite: Preparing to rewrite URIs for ", $r->uri, 
+		" at time ", time);
   if ($response->header('Content-type') =~ m!^text/html!) {
-    &parse($r, $remote_location, $response, \%mappings);
+    &parse($r, $remote_site, $response, \%mappings);
   }
 
-  $r->log->info("ProxyRewrite: Preparing to respond for ", $r->uri);
-  &respond($r, $remote_location, $auth_redirect, $response, \%mappings);
+  # respond to client
+  $r->log->info("ProxyRewrite: Preparing to respond for ", $r->uri, 
+		" at time ", time);
+  &respond($r, $remote_site, $remote_location, $auth_redirect, 
+	   $response, \%mappings);
 
   return OK;
 }
@@ -390,9 +399,9 @@ sub fetch {
 
   my $request = HTTP::Request->new($r->method, $my_uri);
   
-  $r->log->debug("fetch: Time proxy request method created: ", time);
+  $r->log->info("ProxyRewrite::fetch: Time proxy request method created: ", time);
   $r->log->debug("fetch: Base URI (aka location section): $base");
-  $r->log->info("ProxyRewrite: Request for $my_uri with method ", $r->method);
+  $r->log->info("ProxyRewrite::fetch: Request for $my_uri with method ", $r->method);
 
   my(%headers_in) = $r->headers_in;
   while(($k,$v) = each %headers_in) {
@@ -409,6 +418,7 @@ sub fetch {
     if ($k =~ /User-Agent/) {
       $client_agent = $v;
     }
+    $v = uri_unescape($v);
     $request->header($k,$v);	      
     $r->log->debug("fetch: IN-MOD $k: $v");
   }
@@ -420,15 +430,15 @@ sub fetch {
 
   if ($r->method eq "POST") {
     my $content;
-    if ($r->header_in('Content-type') eq 'application/x-www-form-urlencoded') {
+    if ($r->headers_in->{'Content-type'} eq 'application/x-www-form-urlencoded') {
       $content = $r->content;
     } else {
-      $r->read($content, $r->header_in('Content-length'));
+      $r->read($content, $r->headers_in->{'Content-length'});
     }
     $request->content($content);
     $r->log->debug("fetch: Request type: ", $r->method);
     $r->log->debug("fetch: Request content type: ",
-		   $r->header_in('Content-type'));
+		   $r->headers_in->{'Content-type'});
     $r->log->debug("fetch: Request content: $content");
   }
   
@@ -440,8 +450,8 @@ sub fetch {
     $ua->agent("$Apache::ProxyRewrite::PRODUCT");
   }
   my $res = $ua->simple_request($request);
-  $r->log->debug("fetch: Time proxy got document: ", time);
-  $r->log->info("ProxyRewrite: Original document size: ", 
+  $r->log->info("ProxyRewrite::fetch: Time proxy got document: ", time);
+  $r->log->info("ProxyRewrite::fetch: Original document size: ", 
 		length($res->content));
 
   return($res);
@@ -453,7 +463,7 @@ sub fetch {
 ###############################################################################
 ###############################################################################
 sub parse {
-  my ($r, $remote_location, $response, $mapref) = @_;
+  my ($r, $remote_site, $response, $mapref) = @_;
   my $buf = $response->content;
   my ($lessthanpos, $greaterthanpos, $prediff, $diff, 
       $preblock, $tagblock, $lastblock);
@@ -479,7 +489,7 @@ sub parse {
     $tagblock = substr($buf, $lessthanpos + 1, $diff);
     if ($iscomment == 0) {
       $r->log->debug("parse: Dealing with tag block: $tagblock");
-      &dealwithtag($r, $remote_location, \$tagblock, $mapref);
+      &dealwithtag($r, $remote_site, \$tagblock, $mapref);
       $r->log->debug("parse: Edited tag block: $tagblock");
     } else {
       $r->log->debug("parse: Skipped comment tag block");
@@ -487,6 +497,9 @@ sub parse {
     }
     $newbuf .= "$preblock$tagblock";
     $pos = $greaterthanpos;
+    # If a tag isn't properly closed at the end of a document, we need to
+    # force an end to the loop.
+    last if ($pos == -1);
   }
   $lastblock = substr($buf, $pos, $buflen);
   $newbuf .= "$lastblock";
@@ -500,7 +513,7 @@ sub parse {
 ###############################################################################
 ###############################################################################
 sub dealwithtag {
-  my ($r, $remote_location, $tagblock, $mapref) = @_;
+  my ($r, $remote_site, $tagblock, $mapref) = @_;
   my @blocks;
   my ($tag, $lctag, $key, $lckey, $value, $lcvalue, $delay, $tmp, $i);
   my $done = 0;
@@ -556,10 +569,10 @@ sub dealwithtag {
 	    if ($lctag eq 'applet' || $lctag eq 'object') {
 	      # Must deal with later
 	    } 
-            &rewrite_url($r, $remote_location, \$value, $mapref);
+            &rewrite_url($r, $remote_site, \$value, $mapref);
 	    if ($lctag eq 'meta' && $refresh) {
 	      $refresh = 0;
-	      $r->header_out('Refresh', "$delay; $value");
+	      $r->headers_out->{'Refresh'} = "$delay; $value";
 	      $tmp =~ s/(url=)[^;\s]+/$1$value/i;
 	      $value = $tmp;
 	    }
@@ -569,7 +582,7 @@ sub dealwithtag {
 	  }
         } elsif ($lckey eq $LINK_ELEMENTS{$lctag}) {
 	  $value =~ s/\"//g;
-	  &rewrite_url($r, $remote_location, \$value, $mapref);
+	  &rewrite_url($r, $remote_site, \$value, $mapref);
 	  $$tagblock .= " $key=\"$value\"";
 	} else {
 	  $$tagblock .= " $blocks[$i]";
@@ -587,11 +600,13 @@ sub dealwithtag {
 ###############################################################################
 ###############################################################################
 sub rewrite_url {
-  my ($r, $remote_location, $url, $mapref) = @_;
-  my $base = $r->location();
+  my ($r, $remote_site, $url, $mapref) = @_;
 
   $r->log->debug("rewrite_url: Looking at rewriting $$url");
-  if ($$url =~ s/^$remote_location//) {
+  $r->log->debug("remote_site: $remote_site");
+
+  # Remove remote_site from URI to get just the relative-from-root information
+  if ($$url =~ s/^$remote_site//) {
     $r->log->debug("rewrite_url: Shrunk to $$url");
   }
 
@@ -609,25 +624,38 @@ sub rewrite_url {
 ###############################################################################
 ###############################################################################
 sub respond {
-  my ($r, $remote_location, $auth_redirect, $response, $mapref) = @_;
+  my ($r, $remote_site, $remote_location, $auth_redirect, 
+      $response, $mapref) = @_;
   my $parsed_uri = Apache::URI->parse($r);
 
   $r->log->debug("respond: URI: ", $r->uri);
   $r->log->debug("respond: Parsed hostinfo: ", $parsed_uri->hostinfo());
 
   # feed reponse back into our request_record
+  $response->scan(sub {
+		    my ($header, $value) = @_;
+		    $r->log->debug("respond: OUT $header: $value");
+		    if ($header =~ /^Set-Cookie/i) {
+		      $value =~ /path=([^;]+)/i;
+		      my $cookie_path = $1;
+		      &rewrite_url($r, $remote_site, \$cookie_path, $mapref);
+		      $value =~ s/(path=)([^;]+)/$1$cookie_path/i;
+		      $r->log->debug("respond: OUT-MOD $header: $value");
+		    }
+		    $r->headers_out->{$header} = $value;
+		  });
   $r->content_type($response->header('Content-type'));
   $r->status($response->code);
   $r->status_line(join " ", $response->code, $response->message);
-
+  
   # deal with redirects
   if ($r->status =~ /(301|302)/) {
     my $location = $response->header('Location');
-    &rewrite_url($r, $remote_location, \$location, $mapref);
+    &rewrite_url($r, $remote_site, \$location, $mapref);
     $location = $parsed_uri->scheme . '://' . $parsed_uri->hostinfo . 
       $location;
     $r->log->debug("respond: Location: $location");
-    $r->header_out('Location', $location);
+    $r->headers_out->{'Location'} = $location;
   } 
 
   # deal with auth required redirects
@@ -643,15 +671,15 @@ sub respond {
     $r->status('302');
     $r->status_line(join " ", '302', 'Moved Temporarily');
     $r->log->debug("respond: Location: $location");
-    $r->header_out('Location', $location);
+    $r->headers_out->{'Location'} = $location;
     $response->content(undef);
   }
 
   if (length($response->content) != 0) {
-    $r->header_out('Content-length', length($response->content));
+    $r->headers_out->{'Content-length'} = length($response->content);
   } else {
     # HEAD request, must populate with what backend said
-    $r->header_out('Content-length', $response->header('Content-length'));
+    $r->headers_out->{'Content-length'} = length($response->content);
   }
 
   $r->log->debug("respond: Status: ", $r->status);
@@ -706,7 +734,7 @@ proxy to do authentication on the client's behalf.
 =head1 CONFIGURATION OPTIONS
 
 The following variables can be defined within the configration of
-Directory, Location, or Files blocks or within .htaccess files.
+Directory, Location, or Files blocks.
 
 =over 4
 
@@ -781,9 +809,9 @@ returned to the client.
 =item B<Embedded Languages>
 
 Embedded languages such as Javascript are not parsed for embedded
-URLs. The problem, I believe, is NP-Complete. The best choice is
-to surround all embedded languages in HTML comments to avoid
-possible parsing problems.
+URLs. The problem is NP-Complete. The best choice is to surround
+all embedded languages in HTML comments to avoid possible parsing
+problems.
 
 =back
 
@@ -805,7 +833,7 @@ have any trouble with parsed output.
 
 A special thanks goes to my co-authors of absent, from which much
 of the rewriting code comes, Dave Korman and Avi Rubin. Absent is
-a system for secure remote access to an organizations internal
+a system for secure remote access to an organization's internal
 web from outside its firewall. To learn more about absent, go to
 http://www.research.att.com/projects/absent/.
 
@@ -832,6 +860,9 @@ modify it under the terms of the IBM Public License.
 ###############################################################################
 ###############################################################################
 # $Log: ProxyRewrite.pm,v $
+# Revision 1.6  2001/03/02 21:12:32  cgilmore
+# See ChangeLog. Version 0.12.
+#
 # Revision 1.5  2001/01/14 19:47:33  cgilmore
 # added base to LINK_ELEMENT hash and upped to rev 0.11
 #
