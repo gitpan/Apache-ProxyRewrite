@@ -1,4 +1,4 @@
-# $Id: ProxyRewrite.pm,v 1.4 2001/01/02 23:51:20 cgilmore Exp $
+# $Id: ProxyRewrite.pm,v 1.5 2001/01/14 19:47:33 cgilmore Exp $
 #
 # Author          : Christian Gilmore
 # Created On      : Nov 10 12:04:00 CDT 2000
@@ -269,7 +269,7 @@ use Apache::URI;
 use LWP::UserAgent;
 
 # Global variables
-$Apache::ProxyRewrite::VERSION = '0.10';
+$Apache::ProxyRewrite::VERSION = '0.11';
 $Apache::ProxyRewrite::PRODUCT = 'ProxyRewrite/' .
   $Apache::ProxyRewrite::VERSION;
 my %LINK_ELEMENTS =
@@ -281,6 +281,7 @@ my %LINK_ELEMENTS =
                'codebase'   => 1,
               },
  'area'    => 'href',
+ 'base'    => 'href',
  'body'    => 'background',
  'embed'   => 'src',
  'form'    => 'action',
@@ -831,6 +832,9 @@ modify it under the terms of the IBM Public License.
 ###############################################################################
 ###############################################################################
 # $Log: ProxyRewrite.pm,v $
+# Revision 1.5  2001/01/14 19:47:33  cgilmore
+# added base to LINK_ELEMENT hash and upped to rev 0.11
+#
 # Revision 1.4  2001/01/02 23:51:20  cgilmore
 # converted for publication
 #
