@@ -1,4 +1,4 @@
-# $Id: ProxyRewrite.pm,v 1.9 2001/03/21 16:25:04 cgilmore Exp $
+# $Id: ProxyRewrite.pm,v 1.12 2001/09/27 20:45:44 cgilmore Exp $
 #
 # Author          : Christian Gilmore
 # Created On      : Nov 10 12:04:00 CDT 2000
@@ -271,7 +271,7 @@ use LWP::UserAgent;
 use URI::Escape qw(uri_unescape);
 
 # Global variables
-$Apache::ProxyRewrite::VERSION = '0.14';
+$Apache::ProxyRewrite::VERSION = '0.15';
 $Apache::ProxyRewrite::PRODUCT = 'ProxyRewrite/' .
   $Apache::ProxyRewrite::VERSION;
 my %LINK_ELEMENTS =
@@ -521,10 +521,10 @@ sub dealwithtag {
 
   # Remove spaces around equal signs, eg 'src = bar' becomes 'src=bar'
   $$tagblock =~ s/\s*(=)\s*/$1/g;
+  # Remove all other forms of whitespace in block
+  $$tagblock =~ s/(\f|\n|\r|\t)+/ /g;
   # Remove leading spaces in block, eg < img ...> becomes <img ...>
   $$tagblock =~ s/^\s+//;
-  # Remove all other forms of whitespace in block
-  $$tagblock =~ s/(\f|\n|\r|\t)//g;
   # Remove leading and trailing whitespace within quotes
   $$tagblock =~ s/(=[\"\'])\s*/$1/g;
   $$tagblock =~ s/\s*([\"\'])/$1/g;
@@ -845,6 +845,11 @@ http://www.research.att.com/projects/absent/.
 
 =back
 
+=head1 AVAILABILITY
+
+This module is available via CPAN at
+http://www.cpan.org/modules/by-authors/id/C/CG/CGILMORE/.
+
 =head1 AUTHOR
 
 Christian Gilmore <cgilmore@tivoli.com>
@@ -866,6 +871,15 @@ modify it under the terms of the IBM Public License.
 ###############################################################################
 ###############################################################################
 # $Log: ProxyRewrite.pm,v $
+# Revision 1.12  2001/09/27 20:45:44  cgilmore
+# upped to version 0.15
+#
+# Revision 1.11  2001/09/27 18:22:40  cgilmore
+# corrected whitespace bug
+#
+# Revision 1.10  2001/07/17 20:08:42  cgilmore
+# updated documentation
+#
 # Revision 1.9  2001/03/21 16:25:04  cgilmore
 # See ChangeLog for details
 #

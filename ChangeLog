@@ -1,4 +1,11 @@
+2001-09-27	Christian Gilmore <cag@us.ibm.com>
+
+	o  Corrected bug with treatment of spaces. Bug first reported by
+	   Chad Kitching.
+	o  Made release 0.15.
+	
 2001-03-20	Christian Gilmore <cgilmore@tivoli.com>
+
 	o  Corrected bug preparing redirect responses. Bug reported by
 	   Vsevolod Ilyushchenko.
 	o  Parser now handles tags with single quotes. Bug reported by
@@ -34,4 +41,4 @@
 
 	o  Made first public release 0.10.
 
-$Id: ChangeLog,v 1.6 2001/03/21 16:25:04 cgilmore Exp $
+$Id: ChangeLog,v 1.8 2001/09/27 20:48:29 cgilmore Exp $
