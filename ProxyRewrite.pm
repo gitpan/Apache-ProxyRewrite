@@ -1,4 +1,4 @@
-# $Id: ProxyRewrite.pm,v 1.6 2001/03/02 21:12:32 cgilmore Exp $
+# $Id: ProxyRewrite.pm,v 1.7 2001/03/07 19:43:15 cgilmore Exp $
 #
 # Author          : Christian Gilmore
 # Created On      : Nov 10 12:04:00 CDT 2000
@@ -271,7 +271,7 @@ use LWP::UserAgent;
 use URI::Escape qw(uri_unescape);
 
 # Global variables
-$Apache::ProxyRewrite::VERSION = '0.12';
+$Apache::ProxyRewrite::VERSION = '0.13';
 $Apache::ProxyRewrite::PRODUCT = 'ProxyRewrite/' .
   $Apache::ProxyRewrite::VERSION;
 my %LINK_ELEMENTS =
@@ -520,11 +520,14 @@ sub dealwithtag {
   my $refresh = 0;
 
   # Remove spaces around equal signs, eg 'src = bar' becomes 'src=bar'
-  $$tagblock =~ s/\s*=\s*/=/g;
+  $$tagblock =~ s/\s*(=)\s*/$1/g;
   # Remove leading spaces in block, eg < img ...> becomes <img ...>
   $$tagblock =~ s/^\s+//;
   # Remove all other forms of whitespace in block
   $$tagblock =~ s/(\f|\n|\r|\t)//g;
+  # Remove leading and trailing whitespace within quotes
+  $$tagblock =~ s/(=\")\s*/$1/g;
+  $$tagblock =~ s/\s*(\")/$1/g;
   @blocks = split(/\s+/, $$tagblock);
   $tag = shift(@blocks);
   $lctag = lc($tag);
@@ -860,6 +863,9 @@ modify it under the terms of the IBM Public License.
 ###############################################################################
 ###############################################################################
 # $Log: ProxyRewrite.pm,v $
+# Revision 1.7  2001/03/07 19:43:15  cgilmore
+# See ChangeLog
+#
 # Revision 1.6  2001/03/02 21:12:32  cgilmore
 # See ChangeLog. Version 0.12.
 #
